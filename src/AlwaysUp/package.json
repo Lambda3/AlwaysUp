@@ -1,0 +1,9 @@
+{
+  "name": "alwaysup",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {},
+  "author": "Giovanni Bassi <giggio@giggio.net>",
+  "license": "Apache-2.0"
+}
