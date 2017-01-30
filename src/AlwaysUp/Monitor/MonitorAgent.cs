@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Docker.DotNet;
-using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace AlwaysUp.Monitor
 {
@@ -28,6 +25,7 @@ namespace AlwaysUp.Monitor
         {
             client = new DockerClientConfiguration(new Uri($"http://{host}:{port}")).CreateClient();
         }
+
         public async void StartAsync()
         {
             await LoadMonitoringConfigAsync();
@@ -35,7 +33,10 @@ namespace AlwaysUp.Monitor
 
         private Task LoadMonitoringConfigAsync()
         {
-            monitors.Add(new Monitor(client, loggerFactory, new ImageMonitorCondition("foo"), new HttpMonitorTest(loggerFactory, port:5000), new DestroyAndRecreateFixer(client, loggerFactory)));
+            monitors.Add(new Monitor(client, loggerFactory,
+                new ImageMonitorCondition("foo"),
+                new HttpMonitorTest(loggerFactory, port: 8000),
+                new DestroyAndRecreateFixer(client, loggerFactory)));
             foreach (var monitor in monitors)
                 monitor.StartAsync(cancellation.Token);
             return Task.CompletedTask;

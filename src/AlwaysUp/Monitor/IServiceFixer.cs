@@ -5,6 +5,6 @@ namespace AlwaysUp.Monitor
 {
     public interface IServiceFixer
     {
-        Task FixAsync(string containerId, CancellationToken cancellationToken);
+        Task<bool> FixAsync(string containerId, CancellationToken cancellationToken);
     }
 }

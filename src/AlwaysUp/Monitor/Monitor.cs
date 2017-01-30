@@ -20,8 +20,15 @@ namespace AlwaysUp.Monitor
         private Dictionary<string, IDictionary<string, bool>> containerFilters = new Dictionary<string, IDictionary<string, bool>>();
         private readonly IServiceFixer fixer;
         private IImmutableList<string> containerIds = ImmutableList<string>.Empty;
-        public Monitor(DockerClient client, ILoggerFactory loggerFactory, IMonitorCondition condition, IMonitorTest test, IServiceFixer fixer)
+        private readonly int failureTimes;
+        private readonly int failureRetryInterval;
+        public Monitor(DockerClient client, ILoggerFactory loggerFactory,
+            IMonitorCondition condition, IMonitorTest test,
+            IServiceFixer fixer, int failureTimes = 3,
+            int failureRetryInterval = 5000)
         {
+            this.failureRetryInterval = failureRetryInterval;
+            this.failureTimes = failureTimes;
             this.fixer = fixer;
             this.client = client;
             this.test = test;
@@ -43,12 +50,29 @@ namespace AlwaysUp.Monitor
             {
                 foreach (var containerId in containerIds)
                 {
+                    if (!await client.Containers.ContainerExistsAsync(containerId))
+                    {
+                        logger.LogWarning($"Container '{containerId}' does not exist.");
+                        if (containerIds.IndexOf(containerId) > -1)
+                            containerIds = containerIds.Remove(containerId);
+                        continue;
+                    }
                     try
                     {
-                        var isUp = await test.VerifyServiceIsUpAsync(containerId, cancellationToken);
+                        var retriesLeft = failureTimes;
+                        bool isUp;
+                        do
+                        {
+                            isUp = await test.VerifyServiceIsUpAsync(containerId, cancellationToken);
+                            if (isUp) break;
+                            await Task.Delay(failureRetryInterval);
+                        } while (--retriesLeft > 0);
                         if (!isUp)
                         {
-                            await fixer.FixAsync(containerId, cancellationToken);
+                            logger.LogInformation($"Container {containerId} is not up, going to fix...");
+                            var containerFixed = await fixer.FixAsync(containerId, cancellationToken);
+                            if (!containerFixed)
+                                logger.LogWarning($"Container {containerId} was not fixed...");
                         }
                     }
                     catch (Exception ex)

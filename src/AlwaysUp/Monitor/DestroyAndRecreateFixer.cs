@@ -17,46 +17,39 @@ namespace AlwaysUp.Monitor
             this.client = client;
         }
 
-        public async Task FixAsync(string containerId, CancellationToken cancellationToken)
+        public async Task<bool> FixAsync(string containerId, CancellationToken cancellationToken)
         {
+            if (!await client.Containers.ContainerExistsAsync(containerId))
+            {
+                logger.LogWarning($"Container '{containerId}' does not exist.");
+                return false;
+            }
             var inspection = await client.Containers.InspectContainerAsync(containerId);
             var containerName = inspection.Name;
             if (containerName.StartsWith("/")) containerName = containerName.Substring(1);
-            logger.LogDebug($"Stopping container {containerName} ({containerId}).");
-            await client.Containers.StopContainerAsync(containerId, new ContainerStopParameters { WaitBeforeKillSeconds = 10 }, cancellationToken);
-            logger.LogInformation($"Container {containerName} ({containerId}) stopped.");
-            if (await ContainerExistsAsync(containerId))
+            if (inspection.State.Running)
             {
-                logger.LogDebug($"Removing container {containerName} ({containerId}).");
-                await client.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = true });
-                logger.LogInformation($"Container {containerName} ({containerId}) removed.");
+                logger.LogDebug($"Stopping container {containerName} ({containerId}).");
+                await client.Containers.StopContainerAsync(containerId, new ContainerStopParameters { WaitBeforeKillSeconds = 10 }, cancellationToken);
+                logger.LogInformation($"Container {containerName} ({containerId}) stopped.");
             }
+            logger.LogDebug($"Removing container {containerName} ({containerId}).");
+            await client.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = true });
+            logger.LogInformation($"Container {containerName} ({containerId}) removed.");
             logger.LogDebug($"Create new container using same settings from {containerName} ({containerId}).");
             var createContainerResponse = await client.Containers.CreateContainerAsync(CloneConfig(inspection));
             var newContainerId = createContainerResponse.ID;
             logger.LogInformation($"Created new container '{newContainerId}' using same settings from {containerName} ({containerId}).");
+            if (createContainerResponse.Warnings != null)
+                foreach (var warning in createContainerResponse.Warnings)
+                    logger.LogWarning(warning);
             logger.LogDebug($"Starting new container using same settings from {containerName} ({containerId}).");
             var started = await client.Containers.StartContainerAsync(newContainerId, new ContainerStartParameters());
             if (started)
                 logger.LogInformation($"Started new container '{containerName}' ({newContainerId}).");
             else
                 logger.LogError($"Not able to start new container '{containerName}' ({newContainerId}).");
-            if (createContainerResponse.Warnings != null)
-                foreach (var warning in createContainerResponse.Warnings)
-                    logger.LogWarning(warning);
-        }
-
-        private async Task<bool> ContainerExistsAsync(string containerId)
-        {
-            try
-            {
-                await client.Containers.InspectContainerAsync(containerId);
-                return true;
-            }
-            catch (DockerContainerNotFoundException)
-            {
-                return false;
-            }
+            return started;
         }
 
         private static CreateContainerParameters CloneConfig(ContainerInspectResponse inspection)
