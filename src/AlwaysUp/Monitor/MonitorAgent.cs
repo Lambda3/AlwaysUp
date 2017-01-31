@@ -37,6 +37,10 @@ namespace AlwaysUp.Monitor
                 new ImageMonitorCondition("foo"),
                 new HttpMonitorTest(loggerFactory, port: 8000),
                 new DestroyAndRecreateFixer(client, loggerFactory)));
+            monitors.Add(new Monitor(client, loggerFactory,
+                new ImageMonitorCondition("mariadb"),
+                new MariaDbMonitorTest(client, loggerFactory),
+                new DestroyAndRecreateFixer(client, loggerFactory)));
             foreach (var monitor in monitors)
                 monitor.StartAsync(cancellation.Token);
             return Task.CompletedTask;
