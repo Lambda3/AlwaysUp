@@ -34,6 +34,10 @@ namespace AlwaysUp.Monitor
         private Task LoadMonitoringConfigAsync()
         {
             monitors.Add(new Monitor(client, loggerFactory,
+                new ImageMonitorCondition("webfailevery4"),
+                new ClosedHttpMonitorTest(client, loggerFactory, port: 9000),
+                new DestroyAndRecreateFixer(client, loggerFactory)));
+            monitors.Add(new Monitor(client, loggerFactory,
                 new ImageMonitorCondition("foo"),
                 new HttpMonitorTest(loggerFactory, port: 8000),
                 new DestroyAndRecreateFixer(client, loggerFactory)));

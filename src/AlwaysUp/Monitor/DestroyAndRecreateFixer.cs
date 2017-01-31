@@ -33,9 +33,12 @@ namespace AlwaysUp.Monitor
                 await client.Containers.StopContainerAsync(containerId, new ContainerStopParameters { WaitBeforeKillSeconds = 10 }, cancellationToken);
                 logger.LogInformation($"Container {containerName} ({containerId}) stopped.");
             }
-            logger.LogDebug($"Removing container {containerName} ({containerId}).");
-            await client.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = true });
-            logger.LogInformation($"Container {containerName} ({containerId}) removed.");
+            if (await client.Containers.ContainerExistsAsync(containerId))
+            {
+                logger.LogDebug($"Removing container {containerName} ({containerId}).");
+                await client.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = true });
+                logger.LogInformation($"Container {containerName} ({containerId}) removed.");
+            }
             logger.LogDebug($"Create new container using same settings from {containerName} ({containerId}).");
             var createContainerResponse = await client.Containers.CreateContainerAsync(CloneConfig(inspection));
             var newContainerId = createContainerResponse.ID;
